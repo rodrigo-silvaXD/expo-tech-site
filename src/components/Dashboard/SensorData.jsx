@@ -1,3 +1,5 @@
+import { useWeatherAPI } from '../../hooks/useWeatherAPI'
+
 function SensorBar({ value, max, color }) {
   const pct = Math.min(100, (value / max) * 100)
   return (
@@ -10,6 +12,11 @@ function SensorBar({ value, max, color }) {
 export function SensorData({ peopleCount, temperature, consumption, acStatus }) {
   const tempColor = temperature > 28 ? '#ff5252' : temperature > 24 ? '#ffb74d' : '#00e676'
   const peoplePct = Math.min(100, (peopleCount / 10) * 100)
+
+  const { outdoorTemp, isLoading: weatherLoading, error: weatherError } = useWeatherAPI()
+  const outdoorTempColor = outdoorTemp !== null
+    ? (outdoorTemp <= 25 ? '#00e676' : outdoorTemp <= 30 ? '#ffb74d' : '#ff5252')
+    : 'var(--text3)'
 
   const topicLight = `smartbuilding/sala01/luz → ${consumption >= 100 ? '1' : '0'}`
   const topicAC = `smartbuilding/sala01/ac → ${acStatus === 'OFF' ? 'off' : acStatus === 'LOW' ? 'low' : 'high'}`
@@ -51,6 +58,21 @@ export function SensorData({ peopleCount, temperature, consumption, acStatus }) 
           <SensorBar value={consumption} max={1600} color="#ffb74d" />
           <span className="sensor-value" style={{ color: '#ffb74d' }}>{consumption}W</span>
         </div>
+      </div>
+
+      {/* Temperatura Externa - Open-Meteo API */}
+      <div className="sensor-row">
+        <div className="sensor-left">
+          <span className="sensor-icon">🌍</span>
+          <span className="sensor-name">Temp. Externa SP (Open-Meteo)</span>
+        </div>
+        <span className="sensor-value" style={{ color: outdoorTempColor }}>
+          {weatherLoading
+            ? 'carregando...'
+            : weatherError
+              ? 'indisponível'
+              : `${outdoorTemp.toFixed(1)}°C`}
+        </span>
       </div>
 
       {/* Tópicos MQTT simulados */}

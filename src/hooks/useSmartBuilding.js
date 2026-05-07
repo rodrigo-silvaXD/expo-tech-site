@@ -1,3 +1,4 @@
+import { useWeatherAPI } from './useWeatherAPI'
 import { useState, useEffect, useRef, useCallback } from 'react'
 
 const BASE_TEMP = 22
@@ -38,6 +39,9 @@ export function useSmartBuilding() {
   const acRef = useRef('OFF')
   const autoTimers = useRef([])
   const msgIdRef = useRef(0)
+  const initializedFromWeather = useRef(false)
+
+  const { outdoorTemp } = useWeatherAPI()
 
   const setPeopleCount = useCallback((n) => {
     const clamped = Math.max(0, Math.min(10, n))
@@ -95,6 +99,15 @@ export function useSmartBuilding() {
     if (newLight !== lightRef.current) { lightRef.current = newLight; setLightStatus(newLight) }
     if (newAc !== acRef.current) { acRef.current = newAc; setAcStatus(newAc) }
   }, [addMessage])
+
+  // Inicializa temperatura a partir da API Open-Meteo (uma única vez)
+  useEffect(() => {
+    if (outdoorTemp !== null && !initializedFromWeather.current) {
+      initializedFromWeather.current = true
+      tempRef.current = outdoorTemp
+      setTemperatureState(outdoorTemp)
+    }
+  }, [outdoorTemp])
 
   // Tick principal de simulação
   useEffect(() => {
@@ -219,5 +232,6 @@ export function useSmartBuilding() {
     startAutoDemo,
     stopAutoDemo,
     applyScenario,
+    outdoorTemp,
   }
 }
