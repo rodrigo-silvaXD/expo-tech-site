@@ -89,6 +89,7 @@ export default function App() {
           energyData={sb.energyData}
           messages={sb.messages}
           history={sb.history}
+          aiData={sb.aiData}
         />
       </main>
 

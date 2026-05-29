@@ -1,13 +1,15 @@
-import { StatusCard } from './StatusCard'
-import { SensorData } from './SensorData'
-import { DecisionLog } from './DecisionLog'
+import { StatusCard }   from './StatusCard'
+import { SensorData }   from './SensorData'
+import { DecisionLog }  from './DecisionLog'
 import { EconomyPanel } from './EconomyPanel'
-import { Charts } from './Charts'
+import { Charts }       from './Charts'
+import { AIPanel }      from './AIPanel'
 
 export function Dashboard(props) {
   const {
     roomLabel, lightStatus, acStatus, savings, peopleCount,
     temperature, consumption, energyData, messages, history,
+    aiData,
   } = props
 
   return (
@@ -26,6 +28,13 @@ export function Dashboard(props) {
           temperature={temperature}
           consumption={consumption}
           acStatus={acStatus}
+        />
+
+        <AIPanel
+          aiData={aiData}
+          consumption={consumption}
+          temperature={temperature}
+          peopleCount={peopleCount}
         />
 
         <DecisionLog

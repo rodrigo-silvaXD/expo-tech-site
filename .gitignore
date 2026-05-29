@@ -1,4 +1,27 @@
+# dependências
 node_modules/
+
+# build
 dist/
+
+# variáveis de ambiente
 .env
-.DS_Store
+.env.local
+
+# banco de dados local do backend
+*.db
+
+# cache python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# venv
+venv/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
