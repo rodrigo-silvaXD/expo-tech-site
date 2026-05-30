@@ -1,3 +1,5 @@
+import { useWeatherAPI } from '../../hooks/useWeatherAPI'
+
 function SensorBar({ value, max, color }) {
   const pct = Math.min(100, (value / max) * 100)
   return (
@@ -8,13 +10,14 @@ function SensorBar({ value, max, color }) {
 }
 
 export function SensorData({ peopleCount, temperature, consumption, acStatus }) {
+  const weather   = useWeatherAPI()
   const tempColor = temperature > 28 ? '#ff5252' : temperature > 24 ? '#ffb74d' : '#00e676'
   const peoplePct = Math.min(100, (peopleCount / 10) * 100)
 
   const topicLight = `smartbuilding/sala01/luz → ${consumption >= 100 ? '1' : '0'}`
-  const topicAC = `smartbuilding/sala01/ac → ${acStatus === 'OFF' ? 'off' : acStatus === 'LOW' ? 'low' : 'high'}`
-  const topicPir = `smartbuilding/sala01/presenca → ${peopleCount > 0 ? '1' : '0'}`
-  const topicTemp = `smartbuilding/sala01/temperatura → ${temperature.toFixed(1)}`
+  const topicAC    = `smartbuilding/sala01/ac → ${acStatus === 'OFF' ? 'off' : acStatus === 'LOW' ? 'low' : 'high'}`
+  const topicPir   = `smartbuilding/sala01/presenca → ${peopleCount > 0 ? '1' : '0'}`
+  const topicTemp  = `smartbuilding/sala01/temperatura → ${temperature.toFixed(1)}`
 
   return (
     <div className="card">
@@ -50,6 +53,38 @@ export function SensorData({ peopleCount, temperature, consumption, acStatus }) 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <SensorBar value={consumption} max={1600} color="#ffb74d" />
           <span className="sensor-value" style={{ color: '#ffb74d' }}>{consumption}W</span>
+        </div>
+      </div>
+
+      {/* Temperatura externa real — Open-Meteo (São Paulo) */}
+      <div className="sensor-row" style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
+        <div className="sensor-left">
+          <span className="sensor-icon">🌤️</span>
+          <span className="sensor-name">Temp. Externa (São Paulo)</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {weather.loading && (
+            <span className="sensor-value" style={{ color: 'var(--text3)', fontSize: 11 }}>...</span>
+          )}
+          {weather.error && (
+            <span className="sensor-value" style={{ color: '#ff8a80', fontSize: 11 }}>indisponível</span>
+          )}
+          {!weather.loading && !weather.error && weather.temperature !== null && (
+            <>
+              <span className="sensor-value" style={{ color: '#90caf9' }}>
+                {weather.temperature.toFixed(1)}°C
+              </span>
+              <span style={{
+                fontSize: 8.5,
+                color: 'var(--text3)',
+                fontFamily: "'JetBrains Mono', monospace",
+                padding: '2px 6px',
+                borderRadius: 3,
+                background: 'rgba(144,202,249,0.08)',
+                border: '1px solid rgba(144,202,249,0.15)',
+              }}>open-meteo</span>
+            </>
+          )}
         </div>
       </div>
 
