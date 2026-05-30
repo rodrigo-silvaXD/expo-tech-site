@@ -6,6 +6,20 @@ info:
     de anomalias. Projeto integrador — Expo Tech 2026 UniFECAF.
   version: 1.0.0
 paths:
+  /:
+    get:
+      tags:
+      - system
+      summary: Informações da API
+      description: Endpoint raiz com metadados, lista de rotas disponíveis e link
+        para a documentação interativa.
+      operationId: root__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
   /health:
     get:
       tags:

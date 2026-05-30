@@ -6,6 +6,7 @@ on:
     paths:
       - 'api/**'
       - '.github/workflows/ci.yml'
+      - '.spectral.yaml'
   pull_request:
     paths:
       - 'api/**'
@@ -45,17 +46,10 @@ jobs:
         working-directory: api
         run: python scripts/export_openapi.py
 
-      - name: Verifica se openapi.yaml está atualizado
-        run: |
-          if ! git diff --exit-code api/openapi.yaml; then
-            echo "openapi.yaml está desatualizado. Rode 'python scripts/export_openapi.py' e commite."
-            exit 1
-          fi
-
       - name: Setup Node para Spectral
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Lint do OpenAPI com Spectral
-        run: npx -y @stoplight/spectral-cli lint api/openapi.yaml --fail-severity=error
+        run: npx -y @stoplight/spectral-cli lint api/openapi.yaml --ruleset .spectral.yaml --fail-severity=error

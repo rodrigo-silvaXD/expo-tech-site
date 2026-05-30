@@ -165,6 +165,32 @@ def short_cache_headers(seconds: int = 30) -> dict:
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @app.get(
+    "/",
+    summary="Informações da API",
+    description="Endpoint raiz com metadados, lista de rotas disponíveis e link para a documentação interativa.",
+    tags=["system"],
+)
+def root():
+    return {
+        "name":        "Smart Building API",
+        "version":     "1.0.0",
+        "description": "API REST para monitoramento de Smart Building com módulo de predição de consumo via Machine Learning.",
+        "documentation": {
+            "swagger_ui": "/docs",
+            "redoc":      "/redoc",
+            "openapi":    "/openapi.json",
+        },
+        "endpoints": {
+            "health":       "GET  /health",
+            "readings":     "POST /v1/readings",
+            "stats":        "GET  /v1/readings/stats",
+            "predictions":  "GET  /v1/predictions",
+        },
+        "repository": "https://github.com/rodrigo-silvaXD/expo-tech-site",
+    }
+
+
+@app.get(
     "/health",
     response_model=HealthOut,
     summary="Health check",
