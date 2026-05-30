@@ -3,13 +3,17 @@ node_modules/
 
 # build
 dist/
+build/
 
 # variáveis de ambiente
 .env
 .env.local
+.env.production
 
-# banco de dados local do backend
+# banco de dados local do backend Python
 *.db
+*.sqlite
+*.sqlite3
 
 # cache python
 __pycache__/
@@ -20,8 +24,23 @@ __pycache__/
 # venv
 venv/
 .venv/
+env/
 
 # IDEs
 .vscode/
 .idea/
 *.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+npm-debug.log*
+
+# credenciais e arquivos sensíveis
+*serviceAccountKey*
+*credentials*.json
+firebase-adminsdk*.json
