@@ -1,0 +1,329 @@
+openapi: 3.1.0
+info:
+  title: Smart Building API
+  description: API REST para monitoramento de ambiente com sensores simulados (PIR
+    e DHT11), predição de consumo energético via modelo de regressão linear e detecção
+    de anomalias. Projeto integrador — Expo Tech 2026 UniFECAF.
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      tags:
+      - system
+      summary: Health check
+      description: Retorna o status do serviço e do modelo de ML carregado em memória.
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthOut'
+  /v1/readings:
+    post:
+      tags:
+      - readings
+      summary: Armazena leitura dos sensores
+      description: Recebe uma leitura dos sensores simulados (PIR e DHT11) e a persiste
+        no banco. Calcula o score de anomalia comparando o consumo informado com o
+        consumo predito pelo modelo. Aceita header opcional `Idempotency-Key` para
+        evitar duplicação em caso de retry.
+      operationId: salvar_leitura_v1_readings_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeituraIn'
+        required: true
+      responses:
+        '201':
+          description: Leitura armazenada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeituraOut'
+        '422':
+          description: Validação falhou — corpo inválido
+        '429':
+          description: Rate limit excedido
+  /v1/predictions:
+    get:
+      tags:
+      - predictions
+      summary: Predição de consumo energético
+      description: Retorna a predição de consumo (em watts) calculada pelo modelo
+        de regressão linear, dado o número de pessoas na sala e a temperatura ambiente.
+        Não cacheável — sempre reflete o estado atual do modelo.
+      operationId: prever_v1_predictions_get
+      parameters:
+      - name: people
+        in: query
+        required: true
+        schema:
+          type: integer
+          maximum: 10
+          minimum: 0
+          description: Número de pessoas na sala (0 a 10)
+          title: People
+        description: Número de pessoas na sala (0 a 10)
+      - name: temperature
+        in: query
+        required: true
+        schema:
+          type: number
+          maximum: 40
+          minimum: 16
+          description: Temperatura em °C (16 a 40)
+          title: Temperature
+        description: Temperatura em °C (16 a 40)
+      responses:
+        '200':
+          description: Predição calculada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrevisaoOut'
+        '422':
+          description: Parâmetros fora dos limites válidos
+        '429':
+          description: Rate limit excedido
+  /v1/readings/stats:
+    get:
+      tags:
+      - readings
+      summary: Estatísticas agregadas das leituras
+      description: Retorna totais, médias e leituras recentes do banco. Suporta paginação
+        via parâmetros `page` (≥ 1) e `limit` (1 a 100, padrão 20). Cache curto de
+        30s.
+      operationId: estatisticas_v1_readings_stats_get
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: Página (≥ 1)
+          default: 1
+          title: Page
+        description: Página (≥ 1)
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: Itens por página (1 a 100)
+          default: 20
+          title: Limit
+        description: Itens por página (1 a 100)
+      responses:
+        '200':
+          description: Estatísticas retornadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstatisticasOut'
+        '422':
+          description: Parâmetros de paginação inválidos
+        '429':
+          description: Rate limit excedido
+components:
+  schemas:
+    EstatisticasOut:
+      properties:
+        total_readings:
+          type: integer
+          title: Total Readings
+        avg_consumption_w:
+          type: integer
+          title: Avg Consumption W
+        max_consumption_w:
+          type: integer
+          title: Max Consumption W
+        avg_saved_pct:
+          type: number
+          title: Avg Saved Pct
+        page:
+          type: integer
+          title: Page
+        limit:
+          type: integer
+          title: Limit
+        total_pages:
+          type: integer
+          title: Total Pages
+        recent:
+          items:
+            $ref: '#/components/schemas/LeituraRecente'
+          type: array
+          title: Recent
+      type: object
+      required:
+      - total_readings
+      - avg_consumption_w
+      - max_consumption_w
+      - avg_saved_pct
+      - page
+      - limit
+      - total_pages
+      - recent
+      title: EstatisticasOut
+    HealthOut:
+      properties:
+        status:
+          type: string
+          title: Status
+        model_trained:
+          type: boolean
+          title: Model Trained
+        training_samples:
+          type: integer
+          title: Training Samples
+      type: object
+      required:
+      - status
+      - model_trained
+      - training_samples
+      title: HealthOut
+    LeituraIn:
+      properties:
+        peopleCount:
+          type: integer
+          maximum: 10.0
+          minimum: 0.0
+          title: Peoplecount
+          description: Número de pessoas na sala (sensor de contagem)
+        temperature:
+          type: number
+          maximum: 40.0
+          minimum: 16.0
+          title: Temperature
+          description: Temperatura em graus Celsius (DHT11)
+        lightStatus:
+          type: string
+          enum:
+          - 'ON'
+          - 'OFF'
+          title: Lightstatus
+          description: Estado da iluminação
+        acStatus:
+          type: string
+          enum:
+          - 'OFF'
+          - LOW
+          - HIGH
+          title: Acstatus
+          description: Estado do ar-condicionado
+        consumption:
+          type: integer
+          maximum: 1700.0
+          minimum: 0.0
+          title: Consumption
+          description: Consumo medido em watts
+      type: object
+      required:
+      - peopleCount
+      - temperature
+      - lightStatus
+      - acStatus
+      - consumption
+      title: LeituraIn
+      examples:
+      - acStatus: LOW
+        consumption: 900
+        lightStatus: 'ON'
+        peopleCount: 3
+        temperature: 25.4
+    LeituraOut:
+      properties:
+        ok:
+          type: boolean
+          title: Ok
+        total_readings:
+          type: integer
+          title: Total Readings
+          description: Total acumulado de leituras
+        anomaly_score:
+          type: number
+          title: Anomaly Score
+          description: Score de anomalia em %
+        anomaly_flag:
+          type: boolean
+          title: Anomaly Flag
+          description: True se o score > 40%
+      type: object
+      required:
+      - ok
+      - total_readings
+      - anomaly_score
+      - anomaly_flag
+      title: LeituraOut
+    LeituraRecente:
+      properties:
+        ts:
+          type: string
+          title: Ts
+        people:
+          type: integer
+          title: People
+        temperature:
+          type: number
+          title: Temperature
+        ac:
+          type: string
+          title: Ac
+        consumption:
+          type: integer
+          title: Consumption
+      type: object
+      required:
+      - ts
+      - people
+      - temperature
+      - ac
+      - consumption
+      title: LeituraRecente
+    PrevisaoOut:
+      properties:
+        predicted_consumption_w:
+          type: integer
+          title: Predicted Consumption W
+        baseline_w:
+          type: integer
+          title: Baseline W
+        predicted_saving_pct:
+          type: number
+          title: Predicted Saving Pct
+        coef_people:
+          type: number
+          title: Coef People
+        coef_temp:
+          type: number
+          title: Coef Temp
+        training_samples:
+          type: integer
+          title: Training Samples
+        model_type:
+          type: string
+          title: Model Type
+          default: LinearRegression
+        features:
+          items:
+            type: string
+          type: array
+          title: Features
+          default:
+          - people_count
+          - temperature
+      type: object
+      required:
+      - predicted_consumption_w
+      - baseline_w
+      - predicted_saving_pct
+      - coef_people
+      - coef_temp
+      - training_samples
+      title: PrevisaoOut

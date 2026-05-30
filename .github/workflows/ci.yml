@@ -1,0 +1,61 @@
+name: API CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'api/**'
+
+jobs:
+  test:
+    name: Testes e Lint OpenAPI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('api/requirements*.txt') }}
+
+      - name: Instala dependências
+        working-directory: api
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Roda testes
+        working-directory: api
+        run: pytest -v --tb=short
+
+      - name: Regenera openapi.yaml
+        working-directory: api
+        run: python scripts/export_openapi.py
+
+      - name: Verifica se openapi.yaml está atualizado
+        run: |
+          if ! git diff --exit-code api/openapi.yaml; then
+            echo "openapi.yaml está desatualizado. Rode 'python scripts/export_openapi.py' e commite."
+            exit 1
+          fi
+
+      - name: Setup Node para Spectral
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Lint do OpenAPI com Spectral
+        run: npx -y @stoplight/spectral-cli lint api/openapi.yaml --fail-severity=error

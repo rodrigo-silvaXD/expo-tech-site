@@ -165,12 +165,12 @@ export function useSmartBuilding() {
           consumption:  calcConsumption(lightRef.current, acRef.current),
         }
 
-        apiPost('/api/readings', payload).then(res => {
+        apiPost('/v1/readings', payload).then(res => {
           if (!res) {
             setAiData(prev => ({ ...prev, status: 'offline' }))
             return
           }
-          apiGet(`/api/predict?people=${payload.peopleCount}&temperature=${payload.temperature}`)
+          apiGet(`/v1/predictions?people=${payload.peopleCount}&temperature=${payload.temperature}`)
             .then(pred => {
               if (!pred) return
               setAiData({

@@ -2,19 +2,21 @@
 
 Projeto desenvolvido para a **Expo Tech 2026 — UniFECAF**, curso de Engenharia de Computação.
 
-Simula um sistema de automação predial com sensores PIR e DHT11, controle inteligente de
-iluminação e ar-condicionado, módulo de predição de consumo energético via Machine Learning
-e visualização 3D interativa do ambiente.
+Simula um sistema de automação predial com sensores PIR e DHT11, controle inteligente
+de iluminação e ar-condicionado, módulo de predição de consumo energético via Machine
+Learning e visualização 3D interativa do ambiente.
 
 ---
 
 ## Demonstração
 
-🔗 **Site:** https://expo-tech-site.onrender.com  
-🔗 **API:** https://smartbuilding-api.onrender.com/docs
+🔗 **Site:** https://smartbuilding-frontend.onrender.com
+🔗 **API:** https://smartbuilding-api.onrender.com
+🔗 **Swagger UI:** https://smartbuilding-api.onrender.com/docs
+🔗 **OpenAPI YAML:** [`api/openapi.yaml`](api/openapi.yaml)
 
-> O backend roda no plano gratuito do Render e pode demorar ~30 segundos para responder
-> na primeira requisição (cold start). O frontend funciona normalmente enquanto isso.
+> O backend roda no plano gratuito do Render e pode demorar ~30 segundos para
+> responder na primeira requisição (cold start).
 
 ---
 
@@ -24,10 +26,29 @@ e visualização 3D interativa do ambiente.
 - Simulação de sensores PIR (presença) e DHT11 (temperatura) com física térmica
 - Automação inteligente baseada em regras: luz e AC controlados pela ocupação e temperatura
 - Tópicos MQTT simulados em tempo real
-- **Módulo de IA:** regressão linear (scikit-learn) para predição de consumo energético e detecção de anomalias
-- Backend REST (FastAPI) com banco de dados SQLite para armazenamento histórico de leituras
+- **Módulo de IA:** regressão linear (scikit-learn) para predição de consumo e detecção de anomalias
+- **Backend REST versionado:** FastAPI com OpenAPI, rate limiting e padrão de erro RFC 7807
+- Banco SQLite para histórico de leituras
 - Dashboard com gráficos em tempo real, log de decisões e análise de economia de energia
 - 4 cenários pré-configurados + demonstração automática de 78 segundos
+
+---
+
+## Endpoints da API
+
+Base URL: `https://smartbuilding-api.onrender.com`
+
+| Método | Rota                       | Descrição                                        | Rate limit |
+|--------|----------------------------|--------------------------------------------------|------------|
+| GET    | `/health`                  | Status do serviço e do modelo de ML              | —          |
+| POST   | `/v1/readings`             | Armazena leitura dos sensores (retorna 201)      | 120/min    |
+| GET    | `/v1/readings/stats`       | Estatísticas agregadas com paginação             | 60/min     |
+| GET    | `/v1/predictions`          | Predição de consumo via regressão linear         | 300/min    |
+| GET    | `/docs`                    | Swagger UI interativa                            | —          |
+| GET    | `/openapi.json`            | Contrato OpenAPI em JSON                         | —          |
+
+Detalhes completos: ver [`api/openapi.yaml`](api/openapi.yaml) e
+[`docs/API_GOVERNANCE.md`](docs/API_GOVERNANCE.md).
 
 ---
 
@@ -36,104 +57,67 @@ e visualização 3D interativa do ambiente.
 ```
 ┌─────────────────────────────────────────────────────┐
 │                   FRONTEND (Render)                  │
-│                                                      │
-│  React 18 + Vite                                     │
-│  ├── Scene3D (Three.js / R3F)                        │
-│  │     └── Room, People, ACUnit, CeilingLight        │
-│  ├── Dashboard                                       │
-│  │     ├── StatusCard, SensorData, DecisionLog       │
-│  │     ├── EconomyPanel, Charts (Recharts)           │
-│  │     └── AIPanel ←─────────────────────────┐       │
-│  └── useSmartBuilding (hook central)         │       │
-│        └── fetch a cada 6s ──────────────────┘       │
+│  React 18 + Vite + Three.js + Recharts              │
+│  Dashboard com card de IA, gráficos em tempo real,  │
+│  cena 3D interativa e simulação de sensores.        │
 └───────────────────────────┬─────────────────────────┘
-                            │ HTTP REST
+                            │ HTTP REST /v1/*
 ┌───────────────────────────▼─────────────────────────┐
 │                   BACKEND (Render)                   │
-│                                                      │
 │  FastAPI + uvicorn                                   │
-│  ├── POST /api/readings  → salva leitura no banco    │
-│  ├── GET  /api/predict   → predição via sklearn      │
-│  ├── GET  /api/stats     → histórico agregado        │
-│  └── GET  /health        → status do serviço         │
+│  ├── /v1/readings      (POST, 201, idempotente)     │
+│  ├── /v1/predictions   (GET, com validação)         │
+│  ├── /v1/readings/stats (GET, paginado, cache 30s)  │
+│  └── /health           (GET)                         │
 │                                                      │
-│  SQLite (armazenamento de leituras)                  │
-│  scikit-learn LinearRegression                       │
-│    features: [people_count, temperature]             │
-│    target:   consumption (watts)                     │
+│  • SQLite (histórico de leituras)                    │
+│  • scikit-learn LinearRegression                     │
+│  • slowapi (rate limiting por IP)                    │
+│  • RFC 7807 (padrão de erro)                         │
 └─────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Módulo de IA
-
-O módulo de predição usa regressão linear treinada com dados que replicam a física do
-sistema. As features de entrada são número de pessoas na sala e temperatura ambiente. O
-target é o consumo energético em watts.
-
-O modelo é inicializado com 600 amostras sintéticas e retreinado automaticamente a cada
-30 novas leituras reais armazenadas no banco.
-
-Além da predição, o sistema calcula um **score de anomalia** — desvio percentual entre
-o consumo real e o previsto. Desvios acima de 40% ativam um alerta de comportamento anômalo.
-
-**Endpoints:**
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| POST | `/api/readings` | Armazena leitura dos sensores |
-| GET | `/api/predict?people=N&temperature=T` | Predição de consumo |
-| GET | `/api/stats` | Histórico e médias |
-| GET | `/health` | Status da API |
-
----
-
 ## Tecnologias
 
-**Frontend**
-| Tecnologia | Versão | Uso |
-|---|---|---|
-| React | 18.2 | Interface e gerenciamento de estado |
-| Vite | 5.0 | Build e dev server |
-| Three.js | 0.158 | Engine 3D WebGL |
-| @react-three/fiber | 8.15 | Renderer React para Three.js |
-| @react-three/drei | 9.92 | Helpers (OrbitControls) |
-| Recharts | 2.10 | Gráficos de área em tempo real |
+**Frontend:** React 18, Vite 5, Three.js, React Three Fiber, Recharts
 
-**Backend**
-| Tecnologia | Versão | Uso |
-|---|---|---|
-| Python | 3.11 | Linguagem do backend |
-| FastAPI | 0.111 | Framework REST |
-| uvicorn | 0.29 | Servidor ASGI |
-| scikit-learn | 1.4 | Modelo de regressão linear |
-| NumPy | 1.26 | Processamento numérico |
-| SQLite | — | Banco de dados local |
+**Backend:** Python 3.11, FastAPI 0.111, uvicorn, scikit-learn 1.4, NumPy, slowapi, SQLite
+
+**Qualidade:** pytest, httpx, GitHub Actions, Spectral (lint OpenAPI)
 
 ---
 
 ## Rodar localmente
 
-**Frontend**
+### Frontend
 ```bash
 npm install
 npm run dev
-# acessa em http://localhost:3000
+# http://localhost:3000
 ```
 
-**Backend**
+### Backend
 ```bash
 cd api
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
-# documentação em http://localhost:8000/docs
+# http://localhost:8000/docs
 ```
 
-**Conectar frontend ao backend local**
+### Conectar frontend ao backend local
 
-Crie um arquivo `.env` na raiz do projeto:
+Crie um arquivo `.env` na raiz:
 ```
 VITE_API_URL=http://localhost:8000
+```
+
+### Rodar os testes
+```bash
+cd api
+pip install -r requirements-dev.txt
+pytest -v
 ```
 
 ---
@@ -141,18 +125,18 @@ VITE_API_URL=http://localhost:8000
 ## Deploy no Render
 
 ### Backend (Web Service)
-1. Novo serviço → Web Service → conectar repositório
-2. Root Directory: `api`
-3. Runtime: Python
-4. Build Command: `pip install -r requirements.txt`
-5. Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-6. Variável de ambiente: `DB_PATH` = `/opt/render/project/src/smartbuilding.db`
+- Root Directory: `api`
+- Runtime: Python 3
+- Build: `pip install -r requirements.txt`
+- Start: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- Env vars:
+  - `DB_PATH=/opt/render/project/src/smartbuilding.db`
+  - `ALLOWED_ORIGINS=https://smartbuilding-frontend.onrender.com`
 
 ### Frontend (Static Site)
-1. Novo serviço → Static Site → mesmo repositório
-2. Build Command: `npm install && npm run build`
-3. Publish Directory: `dist`
-4. Variável de ambiente: `VITE_API_URL` = URL do backend acima
+- Build: `npm install && npm run build`
+- Publish: `dist`
+- Env var: `VITE_API_URL=https://smartbuilding-api.onrender.com`
 
 ---
 
@@ -160,39 +144,51 @@ VITE_API_URL=http://localhost:8000
 
 ```
 expo-tech-site/
-├── api/                        # backend Python
-│   ├── main.py                 # FastAPI + ML + SQLite
+├── .github/workflows/ci.yml       # CI: testes + lint OpenAPI
+├── api/
+│   ├── main.py                    # FastAPI app
+│   ├── schemas.py                 # Modelos Pydantic
+│   ├── errors.py                  # Handlers RFC 7807
+│   ├── ratelimit.py               # Configuração slowapi
+│   ├── tests/                     # Testes pytest
+│   ├── scripts/export_openapi.py  # Gera openapi.yaml
+│   ├── openapi.yaml               # Contrato OpenAPI (gerado)
 │   ├── requirements.txt
+│   ├── requirements-dev.txt
 │   └── render.yaml
+├── docs/
+│   └── API_GOVERNANCE.md          # Padrões, justificativas, SLO, depreciação
 ├── src/
-│   ├── hooks/
-│   │   └── useSmartBuilding.js # lógica central + integração API
-│   ├── components/
-│   │   ├── Scene3D/            # cena 3D (Room, People, ACUnit, CeilingLight)
-│   │   ├── Dashboard/          # painel lateral (6 cards)
-│   │   │   └── AIPanel.jsx     # card do módulo de IA
-│   │   ├── Controls.jsx        # botões de cenário
-│   │   └── ExplanationBubble.jsx
-│   ├── styles/
-│   │   └── global.css
-│   ├── App.jsx
-│   └── main.jsx
-├── .env.example
-├── index.html
-├── package.json
-└── vite.config.js
+│   ├── hooks/useSmartBuilding.js
+│   ├── components/                # Scene3D, Dashboard (com AIPanel)
+│   └── styles/
+├── README.md
+└── ...
 ```
 
 ---
 
 ## Requisitos do Projeto Integrador (Expo Tech 2026)
 
-| Requisito | Status | Implementação |
-|---|---|---|
-| Módulo de IA | ✅ | Regressão linear (scikit-learn) — predição de consumo + detecção de anomalias |
-| Dashboard de monitoramento | ✅ | React com 6 cards, gráficos em tempo real |
-| Backend estruturado | ✅ | FastAPI com endpoints REST e banco SQLite |
-| Integração IoT / Simulação | ✅ | Sensores PIR e DHT11 simulados, tópicos MQTT em tempo real |
+### Smart Building (engenharias)
+| Requisito | Implementação |
+|---|---|
+| Módulo de IA | Regressão linear (scikit-learn) — predição + anomalias |
+| Dashboard de monitoramento | React com 6 cards e gráficos em tempo real |
+| Backend estruturado | FastAPI versionado (/v1) com OpenAPI |
+| Integração IoT / Simulação | Sensores PIR e DHT11 simulados, tópicos MQTT |
+
+### ECO-API
+| Critério | Implementação |
+|---|---|
+| Arquitetura & Protocolos | Versionamento /v1, status codes corretos, RFC 7807 |
+| DX & Documentação | OpenAPI exportado, Swagger UI, descrições e exemplos |
+| Segurança | Rate limiting, validação Pydantic, CORS restrito, Cache-Control |
+| Performance & Resiliência | Paginação, cache, idempotency-key, rate limit |
+| Governança | CI/CD GitHub Actions, plano de depreciação, SLO definido |
+| Repositório | Código, testes pytest, README e contrato OpenAPI |
+
+Detalhes e justificativas: [`docs/API_GOVERNANCE.md`](docs/API_GOVERNANCE.md).
 
 ---
 
